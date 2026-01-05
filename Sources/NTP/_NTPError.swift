@@ -12,17 +12,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Errors thrown during NTP operations.
-public struct NTPError: Error, Equatable, Hashable, CustomStringConvertible {
-    public var description: String {
+/// Errors thrown during low-level NTP packet operations.
+package struct _NTPError: Error, Sendable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible {
+    package var debugDescription: String {
+        String(describing: self.base)
+    }
+
+    package var description: String {
         String(describing: self.base)
     }
 
     @usableFromInline
     enum Base: Equatable, Hashable, Sendable {
-        case responseNotReceived
-        case notEnoughBytes
-        case versionNotSupported
         case arithmeticOverflow
     }
 
@@ -32,27 +33,9 @@ public struct NTPError: Error, Equatable, Hashable, CustomStringConvertible {
     @inlinable
     init(_ base: Base) { self.base = base }
 
-    /// The client didn't receive a response from the NTP server.
-    @inlinable
-    public static var responseNotReceived: Self {
-        Self(.responseNotReceived)
-    }
-
-    /// Received data packet is too small to be a valid NTP response.
-    @inlinable
-    public static var notEnoughBytes: Self {
-        Self(.notEnoughBytes)
-    }
-
-    /// NTP version number in the server's response isn't supported by the client.
-    @inlinable
-    public static var versionNotSupported: Self {
-        Self(.versionNotSupported)
-    }
-
     /// Arithmetic overflow occurred during offset calculation
     @inlinable
-    public static var arithmeticOverflow: Self {
+    package static var arithmeticOverflow: Self {
         Self(.arithmeticOverflow)
     }
 }

@@ -128,12 +128,30 @@ extension NTPPacket {
         return mutableLIVM
     }
 
-    package func getOffset(clientReceiveTime: UInt64) -> TimeInterval {
-        let a = Int64(bitPattern: self.receiveTime) - Int64(bitPattern: self.originTime)
-        let b = Int64(bitPattern: self.transmitTime) - Int64(bitPattern: clientReceiveTime)
-        let offset = a + (b - a) / 2
+    package func getOffset(clientReceiveTime: UInt64) throws -> TimeInterval {
+        let (a, aOverflowed) = Int64(bitPattern: self.receiveTime)
+            .subtractingReportingOverflow(Int64(bitPattern: self.originTime))
+        if aOverflowed {
+            throw _NTPError(.arithmeticOverflow)
+        }
+
+        let (b, bOverflowed) = Int64(bitPattern: self.transmitTime)
+            .subtractingReportingOverflow(Int64(bitPattern: clientReceiveTime))
+        if bOverflowed {
+            throw _NTPError(.arithmeticOverflow)
+        }
+
+        let (diff, diffOverflowed) = b.subtractingReportingOverflow(a)
+        if diffOverflowed {
+            throw _NTPError(.arithmeticOverflow)
+        }
+
+        let (offset, offsetOverflowed) = a.addingReportingOverflow(diff / 2)
+        if offsetOverflowed {
+            throw _NTPError(.arithmeticOverflow)
+        }
         if offset < 0 {
-            return -1 * NTPTime(-1 * offset).toInterval()
+            return -1 * NTPTime(offset.magnitude).toInterval()
         }
         return NTPTime(offset).toInterval()
     }

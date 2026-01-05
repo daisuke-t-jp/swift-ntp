@@ -97,8 +97,16 @@ extension NTPResponse {
             throw NTPError.versionNotSupported
         }
 
+        // Catch _NTPError and convert to NTPError
+        let offset: TimeInterval
+        do {
+            offset = try p.getOffset(clientReceiveTime: clientReceiveTime)
+        } catch let e as _NTPError where e == .arithmeticOverflow {
+            throw NTPError.arithmeticOverflow
+        }
+
         self.init(
-            offset: .seconds(p.getOffset(clientReceiveTime: clientReceiveTime)),
+            offset: .seconds(offset),
             roundTripDelay: .seconds(p.getRoundTripDelay(clientReceiveTime: clientReceiveTime)),
             serverTime: NTPTime(p.transmitTime).toDate(),
             version: version,

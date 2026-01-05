@@ -90,6 +90,14 @@ struct OffsetTestData {
             clientReceiveTime: 16_957_530_838_418_870_272,  // origin + 05 seconds
             expected: 18
         ),
+        // offset = Int64.min + (0 / 2) = Int64.min → -2147483648.0 seconds
+        OffsetTestData(
+            originTime: 0,
+            serverReceiveTime: UInt64(bitPattern: Int64.min),
+            transmitTime: UInt64(bitPattern: Int64.min),
+            clientReceiveTime: 0,
+            expected: -2147483648.0
+        ),
         OffsetTestData(
             originTime: 16_957_536_211_640_536_064,
             serverReceiveTime: 16_957_536_215_935_503_360,  // origin + 1 seconds
@@ -99,7 +107,7 @@ struct OffsetTestData {
         ),
     ]
 )
-func testOffset(d: OffsetTestData) {
+func testOffset(d: OffsetTestData) throws {
     let p = NTPPacket(
         li: .noAdjustment,
         version: 3,
@@ -116,6 +124,73 @@ func testOffset(d: OffsetTestData) {
         transmitTime: d.transmitTime
     )
     #expect(
-        p.getOffset(clientReceiveTime: d.clientReceiveTime) == d.expected
+        try p.getOffset(clientReceiveTime: d.clientReceiveTime) == d.expected
     )
+}
+
+struct OffsetOverflowTestData {
+    let originTime: UInt64
+    let receiveTime: UInt64
+    let transmitTime: UInt64
+    let clientReceiveTime: UInt64
+}
+
+@Test(
+    "Ensure offset overflow is handled",
+    arguments: [
+        // case: overflow in calculating a
+        // a = recv_t - orig_t = 0 - Int64.min = overflow
+        OffsetOverflowTestData(
+            originTime: UInt64(bitPattern: Int64.min),
+            receiveTime: 0,
+            transmitTime: 0,
+            clientReceiveTime: 0
+        ),
+        // case: overflow in calculating b
+        // b = txmt_t - crecv_t = 0 - Int64.min = overflow
+        OffsetOverflowTestData(
+            originTime: 0,
+            receiveTime: 0,
+            transmitTime: 0,
+            clientReceiveTime: UInt64(bitPattern: Int64.min)
+        ),
+        // case: b - a = Int64.max + 1
+        // a = recv_t - orig_t = 0 - 1 = -1
+        // b = txmt_t - cRecv_t = Int64.max - 0 = Int64.max
+        OffsetOverflowTestData(
+            originTime: 1,
+            receiveTime: 0,
+            transmitTime: UInt64(bitPattern: Int64.max),
+            clientReceiveTime: 0
+        ),
+        // case: b - a = Int64.min - 1
+        // a = recv_t - orig_t = 1 - 0 = 1
+        // b = txmt_t - cRecv_t = Int64.min - 0 = Int64.min
+        OffsetOverflowTestData(
+            originTime: 0,
+            receiveTime: 1,
+            transmitTime: UInt64(bitPattern: Int64.min),
+            clientReceiveTime: 0
+        ),
+    ]
+)
+func testOffsetOverflow(d: OffsetOverflowTestData) {
+    let p = NTPPacket(
+        li: .noAdjustment,
+        version: 3,
+        mode: .server,
+        stratum: 2,
+        poll: 6,
+        precision: -20,
+        rootDelay: 0,
+        rootDispersion: 0,
+        referenceID: 0,
+        referenceTime: 0,
+        originTime: d.originTime,
+        receiveTime: d.receiveTime,
+        transmitTime: d.transmitTime
+    )
+    #expect(throws: _NTPError.arithmeticOverflow) {
+        try p.getOffset(clientReceiveTime: d.clientReceiveTime)
+    }
 }

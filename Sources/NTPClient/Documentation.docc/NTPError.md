@@ -7,6 +7,7 @@
 - ``notEnoughBytes``
 - ``responseNotReceived``
 - ``versionNotSupported``
+- ``arithmeticOverflow``
 
 ### Inspecting an error
 
